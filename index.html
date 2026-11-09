@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>卡通森林極速賽車</title>
+    <!-- 引入 Tailwind CSS 進行現代化 UI 排版 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 載入圓潤卡通字型 */
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700;900&family=Noto+Sans+TC:wght@700;900&display=swap');
+        
+        body {
+            font-family: 'Fredoka', 'Noto Sans TC', cursive, sans-serif;
+            background-color: #0f172a;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* 遊戲 Canvas 圓角與立體陰影 */
+        #gameCanvas {
+            border-radius: 1.5rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+        }
+
+        /* 顯眼立體卡通按鈕樣式 */
+        .btn-cartoon-start {
+            background: linear-gradient(180deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%);
+            border: 4px solid #ffffff;
+            box-shadow: 0 8px 0 #92400e, 0 15px 25px rgba(0, 0, 0, 0.5);
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+        }
+        .btn-cartoon-start:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 0 #92400e, 0 20px 30px rgba(0, 0, 0, 0.6);
+            background: linear-gradient(180deg, #fcd34d 0%, #fbbf24 50%, #f59e0b 100%);
+        }
+        .btn-cartoon-start:active {
+            transform: translateY(4px);
+            box-shadow: 0 3px 0 #92400e, 0 5px 10px rgba(0, 0, 0, 0.4);
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen overflow-hidden p-2 sm:p-4">
+
+    <!-- 主遊戲容器 -->
+    <div class="relative flex flex-col items-center">
+
+        <!-- 頂部儀表板 (HUD) -->
+        <div class="w-full max-w-[450px] mb-3 flex justify-between items-center bg-slate-800/95 border-4 border-amber-400 rounded-2xl p-3 text-white shadow-2xl z-10">
+            <!-- 當前分數 -->
+            <div class="flex flex-col items-start">
+                <span class="text-amber-400 text-xs font-bold tracking-wider">SCORE</span>
+                <span id="scoreText" class="text-2xl font-black text-yellow-300 drop-shadow">0</span>
+            </div>
+            <!-- 當前車速 -->
+            <div class="flex flex-col items-center">
+                <span class="text-emerald-400 text-xs font-bold tracking-wider">SPEED</span>
+                <div class="flex items-baseline space-x-1">
+                    <span id="speedText" class="text-2xl font-black text-emerald-300 drop-shadow">0</span>
+                    <span class="text-xs text-emerald-400">km/h</span>
+                </div>
+            </div>
+            <!-- 最高分紀錄 -->
+            <div class="flex flex-col items-end">
+                <span class="text-rose-400 text-xs font-bold tracking-wider">BEST</span>
+                <span id="highScoreText" class="text-2xl font-black text-rose-300 drop-shadow">0</span>
+            </div>
+        </div>
+
+        <!-- Canvas 遊戲繪圖區域與 Overlay 容器 -->
+        <div class="relative overflow-hidden rounded-3xl border-4 border-slate-700 shadow-2xl">
+            <!-- 遊戲主要 Canvas -->
+            <canvas id="gameCanvas" width="450" height="680" class="block bg-emerald-500"></canvas>
+
+            <!-- 遊戲 Overlay 介面 (開始與結束均由此呈現，初始為顯示狀態) -->
+            <div id="overlayUI" class="absolute inset-0 bg-slate-950/80 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-30 transition-opacity duration-300">
+                
+                <!-- 遊戲大標題 -->
+                <h1 id="uiTitle" class="text-4xl sm:text-5xl font-black text-amber-400 mb-2 drop-shadow-[0_5px_0_rgba(0,0,0,0.9)] tracking-wider">
+                    🌲 森林極速賽車 🏎️
+                </h1>
+                
+                <!-- 副標題描述 -->
+                <p id="uiSubtitle" class="text-slate-200 text-base font-bold mb-6 drop-shadow">
+                    🔥 高速狂飆 × 100% 安全通道防死模式 🔥
+                </p>
+
+                <!-- 顯眼中央「開始飆車！」大按鈕 -->
+                <button id="startBtn" class="btn-cartoon-start text-slate-950 text-3xl font-black py-4 px-12 rounded-full cursor-pointer tracking-wider my-2 transition-all transform active:scale-95">
+                    開始飆車！
+                </button>
+
+                <!-- 操作提示 -->
+                <div class="mt-6 bg-slate-900/90 border-2 border-slate-600 rounded-2xl p-4 text-slate-300 text-xs sm:text-sm space-y-1.5 max-w-xs shadow-inner">
+                    <p class="text-amber-300 font-extrabold text-sm mb-1">🎮 操作指南：</p>
+                    <p>⬅️ ➡️ 或 <span class="text-amber-300 font-bold">A / D</span> 鍵操控左右切換</p>
+                    <p>📱 手機/觸控：點擊畫布<span class="text-emerald-400 font-bold">左半部</span>或<span class="text-emerald-400 font-bold">右半部</span></p>
+                    <p class="text-rose-400 text-xs mt-1 font-bold">🛡️ 無線跑道，但智慧演算法保證留有活路！</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 遊戲核心邏輯 JavaScript 腳本 -->
+    <script>
+        /**
+         * ==========================================
+         * 1. 遊戲基礎設定與 DOM 綁定
+         * ==========================================
+         */
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // UI 介面元素
+        const scoreText = document.getElementById('scoreText');
+        const speedText = document.getElementById('speedText');
+        const highScoreText = document.getElementById('highScoreText');
+        const overlayUI = document.getElementById('overlayUI');
+        const uiTitle = document.getElementById('uiTitle');
+        const uiSubtitle = document.getElementById('uiSubtitle');
+        const startBtn = document.getElementById('startBtn');
+
+        // 賽道幾何維度 (隱形 3 車道邏輯)
+        const trackX = 60;                         // 賽道左側端點
+        const trackWidth = 330;                     // 賽道總寬度
+        const laneCount = 3;                        // 車道數 (3 車道)
+        const laneWidth = trackWidth / laneCount;   // 單一車道寬 (110px)
+
+        // 遊戲狀態與計分
+        let gameState = 'START'; // 'START', 'PLAYING', 'GAMEOVER'
+        let score = 0;
+        let highScore = localStorage.getItem('forest_racing_highscore') || 0;
+        highScoreText.textContent = highScore;
+
+        let frameCount = 0;      // 幀數計數器
+        let roadOffset = 0;      // 背景邊框滾動位移
+        let gameSpeed = 12.0;    // 高速基礎車速
+        const baseSpeed = 12.0;
+
+        // 智慧防死路追蹤陣列 (紀錄每條車道上方最新障礙物的 Y 座標)
+        let laneYTracker = [-999, -999, -999];
+        const minVerticalGap = 165; // 車道縱向安全防堵距離
+
+        /**
+         * ==========================================
+         * 2. 玩家跑車物件 (Player Car)
+         * ==========================================
+         */
+        const player = {
+            width: 46,
+            height: 76,
+            x: canvas.width / 2 - 23,
+            y: canvas.height - 120,
+            targetX: canvas.width / 2 - 23,
+            color: '#ef4444', // 卡通紅
+
+            draw() {
+                ctx.save();
+                
+                // 車身底部立體陰影
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.beginPath();
+                ctx.roundRect(this.x + 4, this.y + 6, this.width, this.height, 12);
+                ctx.fill();
+
+                // 黑色輪胎 (四輪)
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(this.x - 4, this.y + 10, 6, 16);
+                ctx.fillRect(this.x + this.width - 2, this.y + 10, 6, 16);
+                ctx.fillRect(this.x - 4, this.y + this.height - 24, 6, 16);
+                ctx.fillRect(this.x + this.width - 2, this.y + this.height - 24, 6, 16);
+
+                // 車身主體
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.roundRect(this.x, this.y, this.width, this.height, 10);
+                ctx.fill();
+
+                // 賽車車頂擋風玻璃
+                ctx.fillStyle = '#38bdf8';
+                ctx.beginPath();
+                ctx.roundRect(this.x + 6, this.y + 18, this.width - 12, 22, 6);
+                ctx.fill();
+
+                // 賽車白條紋
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(this.x + this.width / 2 - 3, this.y + 2, 6, this.height - 4);
+
+                // 明亮黃色車頭燈
+                ctx.fillStyle = '#fef08a';
+                ctx.beginPath();
+                ctx.arc(this.x + 8, this.y + 5, 4, 0, Math.PI * 2);
+                ctx.arc(this.x + this.width - 8, this.y + 5, 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            },
+
+            update() {
+                // 平滑內插走位移動
+                this.x += (this.targetX - this.x) * 0.35;
+
+                // 賽道邊界限制
+                const minX = trackX + 5;
+                const maxX = trackX + trackWidth - this.width - 5;
+                if (this.x < minX) this.x = minX;
+                if (this.x > maxX) this.x = maxX;
+            },
+
+            reset() {
+                this.x = canvas.width / 2 - 23;
+                this.targetX = this.x;
+                this.y = canvas.height - 120;
+            }
+        };
+
+        /**
+         * ==========================================
+         * 3. 障礙物類別 (Obstacle Class)
+         * ==========================================
+         */
+        class Obstacle {
+            constructor(laneIndex, type) {
+                this.lane = laneIndex;
+                this.width = 46;
+                this.height = 70;
+                this.type = type; // 0: 敵車, 1: 岩石, 2: 圓木
+
+                // 隱形車道中央對齊
+                const laneCenterX = trackX + laneIndex * laneWidth + (laneWidth - this.width) / 2;
+                this.x = laneCenterX;
+                this.y = -this.height - 20;
+
+                // 敵車色彩
+                const carColors = ['#3b82f6', '#10b981', '#a855f7', '#f97316'];
+                this.color = carColors[Math.floor(Math.random() * carColors.length)];
+                this.speedOffsetY = (this.type === 0) ? Math.random() * 2 : 0;
+            }
+
+            draw() {
+                ctx.save();
+                if (this.type === 0) {
+                    // === 敵方卡通跑車 ===
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+                    ctx.beginPath();
+                    ctx.roundRect(this.x + 3, this.y + 4, this.width, this.height, 10);
+                    ctx.fill();
+
+                    ctx.fillStyle = this.color;
+                    ctx.beginPath();
+                    ctx.roundRect(this.x, this.y, this.width, this.height, 8);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#94a3b8';
+                    ctx.beginPath();
+                    ctx.roundRect(this.x + 6, this.y + this.height - 35, this.width - 12, 20, 4);
+                    ctx.fill();
+
+                    // 車尾燈
+                    ctx.fillStyle = '#ef4444';
+                    ctx.fillRect(this.x + 6, this.y + 4, 8, 4);
+                    ctx.fillRect(this.x + this.width - 14, this.y + 4, 8, 4);
+
+                } else if (this.type === 1) {
+                    // === 卡通岩石 ===
+                    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+                    ctx.beginPath();
+                    ctx.arc(this.x + this.width / 2 + 2, this.y + this.height / 2 + 3, 20, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#64748b';
+                    ctx.beginPath();
+                    ctx.arc(this.x + this.width / 2, this.y + this.height / 2, 20, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#94a3b8';
+                    ctx.beginPath();
+                    ctx.arc(this.x + this.width / 2 - 5, this.y + this.height / 2 - 5, 7, 0, Math.PI * 2);
+                    ctx.fill();
+
+                } else {
+                    // === 橫倒圓木 ===
+                    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+                    ctx.fillRect(this.x + 2, this.y + 18, this.width, 30);
+
+                    ctx.fillStyle = '#854d0e';
+                    ctx.beginPath();
+                    ctx.roundRect(this.x, this.y + 15, this.width, 28, 6);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#a16207';
+                    ctx.beginPath();
+                    ctx.arc(this.x + 6, this.y + 29, 9, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+
+            update() {
+                this.y += gameSpeed + this.speedOffsetY;
+            }
+        }
+
+        /**
+         * ==========================================
+         * 4. 動態樹木背景 (Forest Trees)
+         * ==========================================
+         */
+        class Tree {
+            constructor(side) {
+                this.side = side;
+                this.x = side === 'left' ? Math.random() * 30 : canvas.width - 40 + Math.random() * 25;
+                this.y = -50;
+                this.size = 20 + Math.random() * 10;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.fillStyle = '#78350f';
+                ctx.fillRect(this.x - 3, this.y, 6, this.size * 1.2);
+
+                ctx.fillStyle = '#15803d';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y - 4, this.size, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#22c55e';
+                ctx.beginPath();
+                ctx.arc(this.x - 3, this.y - 8, this.size * 0.6, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            update() {
+                this.y += gameSpeed;
+            }
+        }
+
+        // 陣列實體
+        let obstacles = [];
+        let trees = [];
+
+        /**
+         * ==========================================
+         * 5. 核心演算法：100% 絕對安全走廊生成邏輯
+         * ==========================================
+         */
+        function spawnObstaclesSmartly() {
+            // 每 5 幀判定一次生成
+            if (frameCount % 5 === 0) {
+                
+                // 找出目前「安全可生成」的車道集合
+                let availableLanes = [];
+                for (let i = 0; i < laneCount; i++) {
+                    if (laneYTracker[i] < -minVerticalGap || laneYTracker[i] > canvas.height) {
+                        availableLanes.push(i);
+                    }
+                }
+
+                // 核心安全門控：若 3 條車道同時有障礙物在頂部塞住，絕對不允許生成！
+                if (availableLanes.length === 0) return;
+
+                // 80% 高機率觸發障礙物生成
+                if (Math.random() < 0.80) {
+                    const chosenLane = availableLanes[Math.floor(Math.random() * availableLanes.length)];
+                    const obsType = Math.floor(Math.random() * 3);
+
+                    const newObs = new Obstacle(chosenLane, obsType);
+                    obstacles.push(newObs);
+
+                    // 記錄該車道最新障礙物的 Y 位置
+                    laneYTracker[chosenLane] = newObs.y;
+                }
+            }
+
+            // 更新車道追蹤座標
+            for (let i = 0; i < laneCount; i++) {
+                laneYTracker[i] += gameSpeed;
+            }
+
+            // 森林樹木生成
+            if (frameCount % 6 === 0) {
+                if (Math.random() < 0.7) trees.push(new Tree('left'));
+                if (Math.random() < 0.7) trees.push(new Tree('right'));
+            }
+        }
+
+        /**
+         * ==========================================
+         * 6. 繪製卡通無車道線跑道背景
+         * ==========================================
+         */
+        function drawEnvironment() {
+            // 兩側綠地
+            ctx.fillStyle = '#4ade80';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 主跑道 (無中間虛線)
+            ctx.fillStyle = '#334155';
+            ctx.fillRect(trackX, 0, trackWidth, canvas.height);
+
+            // 紅白相間路緣 (Kerbs)
+            const kerbHeight = 30;
+            const totalKerbs = Math.ceil(canvas.height / kerbHeight) + 1;
+            
+            for (let i = 0; i < totalKerbs; i++) {
+                let y = (i * kerbHeight + (roadOffset % (kerbHeight * 2))) - kerbHeight;
+                let color = (i % 2 === 0) ? '#ef4444' : '#ffffff';
+
+                ctx.fillStyle = color;
+                ctx.fillRect(trackX - 10, y, 10, kerbHeight);
+                ctx.fillRect(trackX + trackWidth, y, 10, kerbHeight);
+            }
+
+            roadOffset += gameSpeed;
+        }
+
+        /**
+         * ==========================================
+         * 7. 碰撞檢測 (AABB Hitbox)
+         * ==========================================
+         */
+        function checkCollisions() {
+            const pBox = {
+                x: player.x + player.width * 0.15,
+                y: player.y + player.height * 0.1,
+                width: player.width * 0.7,
+                height: player.height * 0.8
+            };
+
+            for (let obs of obstacles) {
+                const oBox = {
+                    x: obs.x + obs.width * 0.15,
+                    y: obs.y + obs.height * 0.1,
+                    width: obs.width * 0.7,
+                    height: obs.height * 0.8
+                };
+
+                if (pBox.x < oBox.x + oBox.width &&
+                    pBox.x + pBox.width > oBox.x &&
+                    pBox.y < oBox.y + oBox.height &&
+                    pBox.y + pBox.height > oBox.y) {
+                    
+                    triggerGameOver();
+                    return;
+                }
+            }
+        }
+
+        /**
+         * ==========================================
+         * 8. 遊戲主循環
+         * ==========================================
+         */
+        function gameLoop() {
+            if (gameState !== 'PLAYING') return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 1. 背景與路緣
+            drawEnvironment();
+
+            // 2. 樹木
+            trees.forEach((t, index) => {
+                t.update();
+                t.draw();
+                if (t.y > canvas.height + 50) trees.splice(index, 1);
+            });
+
+            // 3. 玩家跑車
+            player.update();
+            player.draw();
+
+            // 4. 障礙物與生成邏輯
+            spawnObstaclesSmartly();
+            obstacles.forEach((obs, index) => {
+                obs.update();
+                obs.draw();
+                if (obs.y > canvas.height + 100) {
+                    obstacles.splice(index, 1);
+                    score += 10;
+                    scoreText.textContent = score;
+                }
+            });
+
+            // 5. 碰撞與車速計算
+            checkCollisions();
+
+            gameSpeed = baseSpeed + (score / 350);
+            speedText.textContent = Math.floor(gameSpeed * 10);
+
+            frameCount++;
+            requestAnimationFrame(gameLoop);
+        }
+
+        /**
+         * ==========================================
+         * 9. 遊戲流程控制 (Start & Game Over)
+         * ==========================================
+         */
+        function startGame() {
+            score = 0;
+            gameSpeed = baseSpeed;
+            frameCount = 0;
+            roadOffset = 0;
+            scoreText.textContent = '0';
+            speedText.textContent = Math.floor(baseSpeed * 10);
+
+            obstacles = [];
+            trees = [];
+            laneYTracker = [-999, -999, -999];
+
+            player.reset();
+            gameState = 'PLAYING';
+
+            // 隱藏 Overlay 介面
+            overlayUI.style.opacity = '0';
+            setTimeout(() => {
+                overlayUI.style.display = 'none';
+            }, 300);
+
+            // 預先載入背景樹木
+            for (let i = 0; i < 12; i++) {
+                let tLeft = new Tree('left');
+                let tRight = new Tree('right');
+                tLeft.y = Math.random() * canvas.height;
+                tRight.y = Math.random() * canvas.height;
+                trees.push(tLeft, tRight);
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function triggerGameOver() {
+            gameState = 'GAMEOVER';
+
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('forest_racing_highscore', highScore);
+                highScoreText.textContent = highScore;
+            }
+
+            // 顯示 Game Over 彈窗 UI
+            uiTitle.textContent = "💥 意外撞車！";
+            uiTitle.className = "text-4xl sm:text-5xl font-black text-rose-500 mb-2 drop-shadow-[0_5px_0_rgba(0,0,0,0.9)] tracking-wider";
+            uiSubtitle.innerHTML = `本次得分：<span class="text-amber-300 text-3xl font-black">${score}</span> 分`;
+            startBtn.textContent = "再次挑戰！";
+
+            overlayUI.style.display = 'flex';
+            setTimeout(() => {
+                overlayUI.style.opacity = '1';
+            }, 10);
+        }
+
+        /**
+         * ==========================================
+         * 10. 事件監聽 (鍵盤 & 畫布觸控/點擊)
+         * ==========================================
+         */
+        // 鍵盤轉向
+        window.addEventListener('keydown', (e) => {
+            if (gameState !== 'PLAYING') return;
+            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+                player.targetX -= laneWidth;
+            } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+                player.targetX += laneWidth;
+            }
+        });
+
+        // 畫布左半 / 右半點擊與觸控轉向
+        canvas.addEventListener('pointerdown', (e) => {
+            if (gameState !== 'PLAYING') return;
+            const rect = canvas.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+
+            if (clickX < canvas.width / 2) {
+                player.targetX -= laneWidth;
+            } else {
+                player.targetX += laneWidth;
+            }
+        });
+
+        // 點擊「開始飆車！」按鈕啟動遊戲
+        startBtn.addEventListener('click', startGame);
+
+        // 初始載入時繪製靜態背景
+        drawEnvironment();
+    </script>
+</body>
+</html>
